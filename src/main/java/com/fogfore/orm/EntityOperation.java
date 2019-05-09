@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 
 public class EntityOperation<T> {
@@ -20,7 +21,7 @@ public class EntityOperation<T> {
     private final String tableName;
     private final Map<String, PropertyMapping> mappings;
     private final RowMapper<T> rowMapper;
-    private final String allColumn = "*";
+    private String allColumn = "*";
 
     public EntityOperation(Class<T> clazz) throws Exception {
         if (!clazz.isAnnotationPresent(Entity.class)) {
@@ -31,6 +32,7 @@ public class EntityOperation<T> {
         tableName = table != null ? table.name() : clazz.getName();
         mappings = createMapping(clazz);
         rowMapper = createRowMapping();
+        allColumn = mappings.keySet().toString().replaceAll("\\[|\\]", "");
     }
 
     private RowMapper<T> createRowMapping() {
@@ -65,10 +67,17 @@ public class EntityOperation<T> {
         Field[] fields = ClassMappings.getFields(clazz);
         Map<String, Method> getters = ClassMappings.findPublicGetters(clazz);
         Map<String, Method> setter = ClassMappings.findPublicSetter(clazz);
+        Map<String, PropertyMapping> map = new HashMap<>();
+        String propertyName = null;
         for (Field field : fields) {
-
+            propertyName = field.getName();
+            if (propertyName.startsWith("is")) {
+                propertyName = propertyName.substring(2);
+            }
+            if (getters.containsKey(propertyName) || setter.containsKey(propertyName)) {
+                map.put(propertyName, new PropertyMapping(getters.get(propertyName), setter.get(propertyName), field));
+            }
         }
-
-        return null;
+        return map;
     }
 }
