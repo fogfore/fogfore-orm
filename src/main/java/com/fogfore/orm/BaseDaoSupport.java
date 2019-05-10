@@ -1,17 +1,22 @@
 package com.fogfore.orm;
 
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.StringJoiner;
 
 public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
     private EntityOperation<T> entityOperation;
-    private JdbcTemplate jdbcTemplate;
-    private DataSource dataSource;
+    private JdbcTemplate jdbcTemplateRead;
+    private JdbcTemplate jdbcTemplateWrite;
+    private DataSource dataSourceRead;
+    private DataSource dataSourceWrite;
 
     @SuppressWarnings("unchecked")
     public BaseDaoSupport() {
@@ -70,8 +75,44 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return false;
     }
 
-    private boolean doInsert(T t) {
-        Map<String, Object> parse = entityOperation.parse(t);
+    private boolean doInsertAndReturnId(T t) {
         return false;
+    }
+
+    private boolean doInsert(T t) {
+        Map<String, Object> param = entityOperation.parse(t);
+        String sql = makeSimpleInsertSql(this.getTableName(), param);
+        int result = this.jdbcTemplateWrite.update(sql, param.values().toArray());
+        return result > 0;
+    }
+
+    private String makeSimpleInsertSql(String tableName, Map<String, Object> param) {
+        if (StringUtils.isEmpty(tableName) || ObjectUtils.isEmpty(param)) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("insert into ");
+        sb.append(tableName);
+        StringJoiner columnNames = new StringJoiner(",", "(", ")");
+        StringJoiner values = new StringJoiner(",", "(", ")");
+        for (String columnName : param.keySet()) {
+            columnNames.add(columnName);
+            values.add("?");
+        }
+        sb.append(columnNames.toString());
+        sb.append(" values ");
+        sb.append(values.toString());
+        sb.append(";");
+        return sb.toString();
+    }
+
+    public void setDataSourceRead(DataSource dataSourceRead) {
+        this.dataSourceRead = dataSourceRead;
+        this.jdbcTemplateRead = new JdbcTemplate(dataSourceRead);
+    }
+
+    public void setDataSourceWrite(DataSource dataSourceWrite) {
+        this.dataSourceWrite = dataSourceWrite;
+        this.jdbcTemplateWrite = new JdbcTemplate(dataSourceWrite);
     }
 }

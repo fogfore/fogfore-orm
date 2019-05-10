@@ -14,6 +14,7 @@ public class ClassMappings {
         Class<?>[] classes = {
                 boolean.class, Boolean.class,
                 char.class, Character.class,
+                byte.class, Byte.class,
                 short.class, Short.class,
                 int.class, Integer.class,
                 long.class, Long.class,
