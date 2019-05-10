@@ -3,6 +3,7 @@ package com.fogfore.orm;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.util.CollectionUtils;
 
 import javax.persistence.*;
 import java.lang.reflect.*;
@@ -17,7 +18,8 @@ public class EntityOperation<T> {
     private final String tableName;
     private final Map<String, PropertyMapping> propertyMappingMap;
     private final RowMapper<T> rowMapper;
-    private String allColumn = "*";
+    private final String allColumn;
+    private final Field pkField;
 
     public EntityOperation(Class<T> clazz) throws Exception {
         if (!clazz.isAnnotationPresent(Entity.class)) {
@@ -28,7 +30,22 @@ public class EntityOperation<T> {
         tableName = table != null ? table.name() : clazz.getName();
         propertyMappingMap = createPropertyMappingMap(clazz);
         rowMapper = createRowMapping();
-        allColumn = propertyMappingMap.keySet().toString().replaceAll("\\[|\\]", "");
+        allColumn = CollectionUtils.isEmpty(propertyMappingMap) ? "*" :
+                propertyMappingMap.keySet().toString().replaceAll("\\[|\\]", "");
+        pkField = findPkField(clazz);
+    }
+
+    private Field findPkField(Class<T> clazz) {
+        if (ObjectUtils.isEmpty(clazz)) {
+            return null;
+        }
+        Field[] fields = ClassMappings.getFields(clazz);
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(Id.class) || StringUtils.equals("id", field.getName())) {
+                return field;
+            }
+        }
+        return null;
     }
 
     public Object parse(ResultSet resultSet) {
@@ -139,5 +156,29 @@ public class EntityOperation<T> {
             map.put(propertyName, new PropertyMapping(getter, setter, field));
         }
         return map;
+    }
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public RowMapper<T> getRowMapper() {
+        return rowMapper;
+    }
+
+    public String getAllColumn() {
+        return allColumn;
+    }
+
+    public Class<T> getEntityClass() {
+        return entityClass;
+    }
+
+    public Map<String, PropertyMapping> getPropertyMappingMap() {
+        return propertyMappingMap;
+    }
+
+    public Field getPkField() {
+        return pkField;
     }
 }
