@@ -12,6 +12,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class EntityOperation<T> {
     private final Class<T> entityClass;
@@ -65,7 +66,7 @@ public class EntityOperation<T> {
         if (ObjectUtils.isEmpty(t) || propertyMappingMap == null || propertyMappingMap.isEmpty()) {
             return null;
         }
-        Map<String, Object> map = new HashMap<>();
+        Map<String, Object> map = new TreeMap<>();
         try {
             for (Map.Entry<String, PropertyMapping> entry : propertyMappingMap.entrySet()) {
                 String columnName = entry.getKey();
