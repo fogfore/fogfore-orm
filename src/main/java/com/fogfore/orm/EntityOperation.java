@@ -1,15 +1,11 @@
 package com.fogfore.orm;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import javax.persistence.*;
+import java.lang.reflect.*;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -19,7 +15,7 @@ import java.util.Map;
 public class EntityOperation<T> {
     private final Class<T> entityClass;
     private final String tableName;
-    private final Map<String, PropertyMapping> mappings;
+    private final Map<String, PropertyMapping> propertyMappingMap;
     private final RowMapper<T> rowMapper;
     private String allColumn = "*";
 
@@ -30,9 +26,53 @@ public class EntityOperation<T> {
         this.entityClass = clazz;
         Table table = clazz.getAnnotation(Table.class);
         tableName = table != null ? table.name() : clazz.getName();
-        mappings = createMapping(clazz);
+        propertyMappingMap = createPropertyMappingMap(clazz);
         rowMapper = createRowMapping();
-        allColumn = mappings.keySet().toString().replaceAll("\\[|\\]", "");
+        allColumn = propertyMappingMap.keySet().toString().replaceAll("\\[|\\]", "");
+    }
+
+    public Object parse(ResultSet resultSet) {
+        if (ObjectUtils.isEmpty(resultSet)) {
+            return null;
+        }
+        T t = null;
+        try {
+            t = this.rowMapper.mapRow(resultSet, 0);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return t;
+    }
+
+    public Map<String, Object> parse(T t) {
+        if (ObjectUtils.isEmpty(t) || propertyMappingMap == null || propertyMappingMap.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> map = new HashMap<>();
+        try {
+            for (Map.Entry<String, PropertyMapping> entry : propertyMappingMap.entrySet()) {
+                String columnName = entry.getKey();
+                PropertyMapping propertyMapping = entry.getValue();
+                Object obj = null;
+                obj = propertyMapping.get(t);
+                map.put(columnName, obj);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
+
+    public void println(T t) {
+        try {
+            for (Map.Entry<String, PropertyMapping> entry : propertyMappingMap.entrySet()) {
+                String columnName = entry.getKey();
+                Object value = entry.getValue().get(t);
+                System.out.println(columnName + " = " + value);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private RowMapper<T> createRowMapping() {
@@ -48,35 +88,55 @@ public class EntityOperation<T> {
                         String columnName = metaData.getColumnName(j);
                         fillBeanFieldValue(t, columnName, value);
                     }
+                    return t;
                 } catch (Exception e) {
-                    throw new RuntimeException();
+                    throw new SQLException(e);
                 }
-                return null;
             }
         };
     }
 
     private void fillBeanFieldValue(Object object, String columnName, Object value) {
-
+        if (ObjectUtils.isEmpty(object) || StringUtils.isEmpty(columnName) || ObjectUtils.isEmpty(object)) {
+            return;
+        }
+        PropertyMapping pm = propertyMappingMap.get(columnName);
+        if (pm != null) {
+            try {
+                pm.set(object, value);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
-    private Map<String, PropertyMapping> createMapping(Class<T> clazz) {
-        if (clazz == null) {
+    private Map<String, PropertyMapping> createPropertyMappingMap(Class<T> clazz) {
+        if (ObjectUtils.isEmpty(clazz)) {
             return null;
         }
         Field[] fields = ClassMappings.getFields(clazz);
         Map<String, Method> getters = ClassMappings.findPublicGetters(clazz);
-        Map<String, Method> setter = ClassMappings.findPublicSetter(clazz);
+        Map<String, Method> setters = ClassMappings.findPublicSetter(clazz);
         Map<String, PropertyMapping> map = new HashMap<>();
         String propertyName = null;
         for (Field field : fields) {
-            propertyName = field.getName();
-            if (propertyName.startsWith("is")) {
-                propertyName = propertyName.substring(2);
+            if (field.isAnnotationPresent(Transient.class)) {
+                continue;
             }
-            if (getters.containsKey(propertyName) || setter.containsKey(propertyName)) {
-                map.put(propertyName, new PropertyMapping(getters.get(propertyName), setter.get(propertyName), field));
+            Column column = field.getAnnotation(Column.class);
+
+            propertyName = field.getName().startsWith("is") ? field.getName().substring(2) : field.getName();
+            propertyName = Character.toLowerCase(propertyName.charAt(0)) + propertyName.substring(1);
+            propertyName = !ObjectUtils.isEmpty(column) && !StringUtils.isEmpty(column.name()) ?
+                    column.name() : propertyName;
+
+            Method getter = getters.get(propertyName);
+            Method setter = setters.get(propertyName);
+            if (getter == null || setter == null) {
+                continue;
             }
+
+            map.put(propertyName, new PropertyMapping(getter, setter, field));
         }
         return map;
     }
