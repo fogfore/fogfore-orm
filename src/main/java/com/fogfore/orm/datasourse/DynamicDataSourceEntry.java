@@ -1,4 +1,4 @@
-package com.fogfore.orm;
+package com.fogfore.orm.datasourse;
 
 import org.aopalliance.intercept.Joinpoint;
 

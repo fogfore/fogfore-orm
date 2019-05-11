@@ -9,10 +9,10 @@
         <property name="maxActive" value="${dbPool.maxActive}"/>
         <property name="maxWait" value="${dbPool.maxWait}"/>
         <property name="timeBetweenEvictionRunsMillis" value="${dbPool.timeBetweenEvictionRunsMillis}"/>
-        <property name="minEvictableIdleTimeMillis" value="${minEvictableIdleTimeMillis}"/>
+        <property name="minEvictableIdleTimeMillis" value="${dbPool.minEvictableIdleTimeMillis}"/>
         <property name="validationQuery" value="${dbPool.validationQuery}"/>
         <property name="testWhileIdle" value="${dbPool.testWhileIdle}"/>
-        <property name="testOnBorrow" value="${$dbPool.testOnBorrow}"/>
+        <property name="testOnBorrow" value="${dbPool.testOnBorrow}"/>
         <property name="testOnReturn" value="${dbPool.testOnReturn}"/>
         <property name="poolPreparedStatements" value="${dbPool.poolPreparedStatements}"/>
         <property name="maxPoolPreparedStatementPerConnectionSize"
@@ -27,14 +27,15 @@
         <property name="password" value="${mysql.jdbc.password}"/>
     </bean>
 
-    <bean id="dynamicDataSourceEntry" class="com.fogfore.orm.DynamicDataSourceEntry"/>
+    <bean id="dynamicDataSourceEntry" class="com.fogfore.orm.datasourse.DynamicDataSourceEntry"/>
 
-    <bean id="dynamicDataSource" class="com.fogfore.orm.DynamicDataSource">
+    <bean id="dynamicDataSource" class="com.fogfore.orm.datasourse.DynamicDataSource">
         <property name="dataSourceEntry" ref="dynamicDataSourceEntry"/>
         <property name="targetDataSources">
             <map>
                 <entry key="db_one" value-ref="dataSource"/>
             </map>
         </property>
+        <property name="defaultTargetDataSource" ref="dataSource"/>
     </bean>
 </beans>

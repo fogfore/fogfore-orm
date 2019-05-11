@@ -1,9 +1,13 @@
 package com.fogfore.orm;
 
 
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.StringJoiner;
 
 public class QueryRuleSqlBuilder {
     private String whereSql;
@@ -11,9 +15,6 @@ public class QueryRuleSqlBuilder {
     private List<Object> values;
 
     private QueryRuleSqlBuilder(QueryRule queryRule) {
-        if (queryRule == null) {
-            return;
-        }
         if (queryRule.hasRules()) {
             buildWhereSql(queryRule.getRules());
         }
@@ -30,25 +31,30 @@ public class QueryRuleSqlBuilder {
     }
 
     public boolean hasWhereSql() {
-        return whereSql != null && !whereSql.matches("^\\s*$");
+        return StringUtils.isEmpty(whereSql);
     }
 
     public boolean hasOrderSql() {
-        return orderSql != null && !orderSql.matches("^\\s*$");
+        return StringUtils.isEmpty(orderSql);
     }
 
     public boolean hasValues() {
-        return values != null && !values.isEmpty();
+        return ObjectUtils.isEmpty(values);
     }
 
     private void buildWhereSql(List<QueryRule.Rule> rules) {
-        if (rules.isEmpty()) {
+        if (ObjectUtils.isEmpty(rules)) {
             return;
         }
         StringBuilder sql = new StringBuilder();
+        boolean flag = false;
         for (QueryRule.Rule rule : rules) {
-            sql.append(rule.getAndOr());
-            sql.append(" ");
+            if (flag) {
+                sql.append(" ");
+                sql.append(rule.getAndOr());
+                sql.append(" ");
+            }
+            flag = true;
             sql.append(rule.getSql());
 
             if (values == null) {
@@ -56,25 +62,17 @@ public class QueryRuleSqlBuilder {
             }
             this.values.addAll(Arrays.asList(rule.getValues()));
         }
-        this.whereSql = removeFirstSeparator(sql.toString());
+        this.whereSql = sql.toString();
     }
 
     private void buildOrderSql(List<QueryRule.Order> orders) {
-        if (orders.isEmpty()) {
+        if (ObjectUtils.isEmpty(orders)) {
             return;
         }
-        StringBuilder sql = new StringBuilder();
-        for (QueryRule.Order order : orders) {
-            sql.append(", ");
-            sql.append(order.getPropertyName());
-            sql.append(" ");
-            sql.append(order.getType());
-        }
-        this.orderSql = removeFirstSeparator(sql.toString());
-    }
-
-
-    private String removeFirstSeparator(String str) {
-        return str.replaceFirst("^\\s*(and|,)\\s*", "");
+        StringJoiner joiner = new StringJoiner(",", "", "");
+        orders.forEach(order -> {
+            joiner.add(order.getSql());
+        });
+        this.orderSql = joiner.toString();
     }
 }

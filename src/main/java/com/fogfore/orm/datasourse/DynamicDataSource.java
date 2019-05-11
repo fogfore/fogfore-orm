@@ -1,5 +1,6 @@
-package com.fogfore.orm;
+package com.fogfore.orm.datasourse;
 
+import com.fogfore.orm.datasourse.DynamicDataSourceEntry;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 public class DynamicDataSource extends AbstractRoutingDataSource {

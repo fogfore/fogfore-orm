@@ -1,5 +1,7 @@
 package com.fogfore.orm;
 
+import org.apache.commons.lang3.ObjectUtils;
+
 import java.io.Serializable;
 import java.util.*;
 
@@ -28,7 +30,6 @@ public final class QueryRule implements Serializable {
     private List<Order> orders;
 
     private QueryRule() {
-        rules = new LinkedList<>();
     }
 
     public static QueryRule newInstance() {
@@ -174,6 +175,9 @@ public final class QueryRule implements Serializable {
     }
 
     private void addRule(String andOr, String propertyName, String symbol, String prefix, String split, String suffix, Object... values) {
+        if (rules == null) {
+            rules = new LinkedList<>();
+        }
         StringJoiner joiner = new StringJoiner(split, prefix, suffix);
         for (Object value : values) {
             joiner.add(" ? ");
@@ -183,6 +187,9 @@ public final class QueryRule implements Serializable {
     }
 
     private void addOrder(String propertyName, String type) {
+        if (orders == null) {
+            orders = new LinkedList<>();
+        }
         orders.add(new Order(propertyName, type));
     }
 
@@ -238,39 +245,27 @@ public final class QueryRule implements Serializable {
     }
 
     final class Order {
-        private String propertyName;
-        private String type;
+        private String sql;
 
         public Order(String propertyName, String type) {
-            this.propertyName = propertyName;
-            this.type = type;
+            this.sql = propertyName + " " + type;
         }
 
-        public String getPropertyName() {
-            return propertyName;
+        public String getSql() {
+            return sql;
         }
 
-        public void setPropertyName(String propertyName) {
-            this.propertyName = propertyName;
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public void setType(String type) {
-            this.type = type;
+        public void setSql(String sql) {
+            this.sql = sql;
         }
 
         @Override
         public String toString() {
             return "Order{" +
-                    "propertyName='" + propertyName + '\'' +
-                    ", type='" + type + '\'' +
+                    "sql='" + sql + '\'' +
                     '}';
         }
     }
-
 
     public List<Rule> getRules() {
         return rules;
@@ -278,5 +273,13 @@ public final class QueryRule implements Serializable {
 
     public List<Order> getOrders() {
         return orders;
+    }
+
+    public boolean hasRules() {
+        return !ObjectUtils.isEmpty(rules);
+    }
+
+    public boolean hasOrders() {
+        return !ObjectUtils.isEmpty(orders);
     }
 }

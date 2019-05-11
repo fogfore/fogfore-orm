@@ -120,4 +120,8 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         setDataSourceRead(dataSource);
         setDataSourceWrite(dataSource);
     }
+
+    public DataSource getDataSource() {
+        return this.dataSourceRead;
+    }
 }
