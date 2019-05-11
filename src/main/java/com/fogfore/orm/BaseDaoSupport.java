@@ -1,5 +1,6 @@
 package com.fogfore.orm;
 
+import com.fogfore.utils.GenericsUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -8,7 +9,6 @@ import javax.sql.DataSource;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.StringJoiner;
 
 public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
@@ -106,13 +106,18 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return sb.toString();
     }
 
-    public void setDataSourceRead(DataSource dataSourceRead) {
+    protected void setDataSourceRead(DataSource dataSourceRead) {
         this.dataSourceRead = dataSourceRead;
         this.jdbcTemplateRead = new JdbcTemplate(dataSourceRead);
     }
 
-    public void setDataSourceWrite(DataSource dataSourceWrite) {
+    protected void setDataSourceWrite(DataSource dataSourceWrite) {
         this.dataSourceWrite = dataSourceWrite;
         this.jdbcTemplateWrite = new JdbcTemplate(dataSourceWrite);
+    }
+
+    protected void setDataSource(DataSource dataSource) {
+        setDataSourceRead(dataSource);
+        setDataSourceWrite(dataSource);
     }
 }

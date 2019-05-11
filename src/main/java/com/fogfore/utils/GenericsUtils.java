@@ -1,4 +1,4 @@
-package com.fogfore.orm;
+package com.fogfore.utils;
 
 import org.apache.commons.lang3.ObjectUtils;
 
