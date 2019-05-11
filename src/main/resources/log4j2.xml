@@ -6,7 +6,7 @@
             <PatternLayout pattern="[%d{HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
             <ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
         </console>
-        <File name="log" fileName="log/test.log" append="false">
+        <File name="Temp" fileName="log/test.log" append="false">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level %class{36} %L %M - %msg%xEx%n"/>
         </File>
         <RollingFile name="RollingFileInfo" fileName="log/info.log"
@@ -40,6 +40,7 @@
     <loggers>
         <logger name="org.springframework" level="INFO"/>
         <root level="all">
+            <appender-ref ref="Temp"/>
             <appender-ref ref="Console"/>
             <appender-ref ref="RollingFileInfo"/>
             <appender-ref ref="RollingFileWarn"/>
