@@ -21,10 +21,8 @@
     </tx:advice>
 
     <aop:config>
+        <aop:pointcut id="transactionPointcut"
+                      expression="execution(public * com.fogfore.*.service..*Service.*(..))"/>
         <aop:advisor advice-ref="transactionAdvice" pointcut-ref="transactionPointcut"/>
-        <aop:aspect ref="dataSource">
-            <aop:pointcut id="transactionPointcut"
-                          expression="execution(public * com.fogfore.*.service..*Service.*(..))"/>
-        </aop:aspect>
     </aop:config>
 </beans>
