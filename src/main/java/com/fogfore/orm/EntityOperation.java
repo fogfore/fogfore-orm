@@ -49,6 +49,10 @@ public class EntityOperation<T> {
         return null;
     }
 
+    public Class getPkClass() {
+        return pkField.getType();
+    }
+
     public Object parse(ResultSet resultSet) {
         if (ObjectUtils.isEmpty(resultSet)) {
             return null;
@@ -128,6 +132,12 @@ public class EntityOperation<T> {
         }
     }
 
+    /**
+     * columnName存在，key为columnName，否则为fieldName
+     *
+     * @param clazz
+     * @return
+     */
     private Map<String, PropertyMapping> createPropertyMappingMap(Class<T> clazz) {
         if (ObjectUtils.isEmpty(clazz)) {
             return null;

@@ -4,9 +4,16 @@ import com.fogfore.utils.GenericsUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 
 import javax.sql.DataSource;
 import java.io.Serializable;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -51,12 +58,28 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return doInsert(t);
     }
 
-    public PK insertAndReturnId(T t) {
-        return null;
+    public Number insertAndReturnId(T t) throws SQLException {
+        Class pkClass = entityOperation.getPkClass();
+        if (pkClass != Integer.class && pkClass != int.class &&
+                pkClass != Long.class && pkClass != long.class) {
+            throw new SQLException("不支持主键类型" + pkClass);
+        }
+        return doInsertAndReturnId(t);
     }
 
     public boolean insertAll(List<T> list) {
-        return false;
+        if (ObjectUtils.isEmpty(list)) {
+            return false;
+        }
+        String[] columnNames = (String[]) entityOperation.getPropertyMappingMap().keySet().toArray();
+        LinkedList<Object> values = new LinkedList<>();
+        String sql = makeInsertSql(getTableName(), columnNames, list.size());
+        for (T t : list) {
+            Map<String, Object> map = entityOperation.parse(t);
+            values.addAll(map.values());
+        }
+        int result = jdbcTemplateWrite.update(sql, values.toArray());
+        return result == list.size();
     }
 
     public boolean update(T t) {
@@ -75,33 +98,62 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return false;
     }
 
-    private boolean doInsertAndReturnId(T t) {
-        return false;
+    private Number doInsertAndReturnId(T t) {
+        if (ObjectUtils.isEmpty(t)) {
+            return null;
+        }
+        GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
+        Map<String, Object> param = entityOperation.parse(t);
+        String sql = makeSimpleInsertSql(getTableName(), (String[]) param.keySet().toArray());
+        jdbcTemplateWrite.update(new PreparedStatementCreator() {
+            @Override
+            public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+                Object[] objects = param.values().toArray();
+                for (int i = 0; i < objects.length; i++) {
+                    ps.setObject(i + 1, objects[i]);
+                }
+                return ps;
+            }
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        return keyHolder.getKey();
     }
 
     private boolean doInsert(T t) {
+        if (ObjectUtils.isEmpty(t)) {
+            return false;
+        }
         Map<String, Object> param = entityOperation.parse(t);
-        String sql = makeSimpleInsertSql(this.getTableName(), param);
+        String sql = makeSimpleInsertSql(this.getTableName(), (String[]) param.keySet().toArray());
         int result = this.jdbcTemplateWrite.update(sql, param.values().toArray());
         return result > 0;
     }
 
-    private String makeSimpleInsertSql(String tableName, Map<String, Object> param) {
-        if (StringUtils.isEmpty(tableName) || ObjectUtils.isEmpty(param)) {
+    private String makeSimpleInsertSql(String tableName, String[] columnNames) {
+        return makeInsertSql(tableName, columnNames, 1);
+    }
+
+    private String makeInsertSql(String tableName, String[] columnNames, int rowNum) {
+        if (StringUtils.isEmpty(tableName) || ObjectUtils.isEmpty(columnNames) || rowNum < 1) {
             return null;
         }
         StringBuilder sb = new StringBuilder();
         sb.append("insert into ");
         sb.append(tableName);
-        StringJoiner columnNames = new StringJoiner(",", "(", ")");
-        StringJoiner values = new StringJoiner(",", "(", ")");
-        for (String columnName : param.keySet()) {
-            columnNames.add(columnName);
-            values.add("?");
+        StringJoiner namesJoiner = new StringJoiner(",", "(", ")");
+        StringJoiner valuesJoiner = new StringJoiner(",", "(", ")");
+        for (String name : columnNames) {
+            namesJoiner.add(name);
+            valuesJoiner.add("?");
         }
-        sb.append(columnNames.toString());
+        sb.append(namesJoiner.toString());
         sb.append(" values ");
-        sb.append(values.toString());
+        StringJoiner multiJoiner = new StringJoiner("", ",", "");
+        for (int i = 0; i < rowNum; i++) {
+            multiJoiner.add(valuesJoiner.toString());
+        }
+        sb.append(multiJoiner.toString());
         sb.append(";");
         return sb.toString();
     }
@@ -119,9 +171,5 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
     protected void setDataSource(DataSource dataSource) {
         setDataSourceRead(dataSource);
         setDataSourceWrite(dataSource);
-    }
-
-    public DataSource getDataSource() {
-        return this.dataSourceRead;
     }
 }
