@@ -68,18 +68,7 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
     }
 
     public boolean insertAll(List<T> list) {
-        if (ObjectUtils.isEmpty(list)) {
-            return false;
-        }
-        Object[] columnNames = entityOperation.getPropertyMappingMap().keySet().toArray();
-        LinkedList<Object> values = new LinkedList<>();
-        String sql = makeInsertSql(getTableName(), columnNames, list.size());
-        for (T t : list) {
-            Map<String, Object> map = entityOperation.parse(t);
-            values.addAll(map.values());
-        }
-        int result = jdbcTemplateWrite.update(sql, values.toArray());
-        return result == list.size();
+        return doInsertAll(list);
     }
 
     public boolean update(T t) {
@@ -90,37 +79,70 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return false;
     }
 
-    @SuppressWarnings("unchecked")
     public boolean delete(T t) throws Exception {
+        return doDelete(t);
+    }
+
+    public boolean deleteAll(List<T> list) throws Exception {
+        return doDeleteAll(list);
+    }
+
+    public boolean deleteByPk(PK pkValue) {
+        return doDeleteByPk(pkValue);
+    }
+
+    public boolean deleteAllByPk(List<PK> list) {
+        return deleteAllByPk(list);
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean doDelete(T t) throws Exception {
         if (ObjectUtils.isEmpty(t)) {
             return false;
         }
         PK pkValue = (PK) entityOperation.getPkValue(t);
-        return doDelete(pkValue);
+        return doDeleteByPk(pkValue);
     }
 
-    public boolean doDelete(PK pkValue) {
+    @SuppressWarnings("unchecked")
+    private boolean doDeleteAll(List<T> list) throws Exception {
+        if (ObjectUtils.isEmpty(list)) {
+            return false;
+        }
+        List<PK> pkList = new LinkedList<>();
+        for (T t : list) {
+            PK pkValue = (PK) entityOperation.getPkValue(t);
+            pkList.add(pkValue);
+        }
+        return doDeleteAllByPk(pkList);
+    }
+
+    private boolean doDeleteByPk(PK pkValue) {
         if (ObjectUtils.isEmpty(pkValue)) {
             return false;
         }
-        StringBuilder sql = new StringBuilder();
-        sql.append("delete from ");
-        sql.append(getTableName());
-        sql.append(" where ");
-        QueryRule queryRule = QueryRule.newInstance();
-        queryRule.andEqual(entityOperation.getPkName(), pkValue);
-        QueryRuleSqlBuilder build = QueryRuleSqlBuilder.build(queryRule);
-        if (!build.hasWhereSql() && !build.hasValues()) {
-            return false;
-        }
-        sql.append(build.getWhereSql());
-        sql.append(";");
-        int result = jdbcTemplateWrite.update(sql.toString(), build.getValues().toArray());
+        String sql = makeSimpleDeleteSql(entityOperation.getPkName());
+        int result = jdbcTemplateWrite.update(sql, pkValue);
         return result > 0;
     }
 
-    public boolean deleteAll(List<T> list) {
-        return false;
+    private boolean doDeleteAllByPk(List<PK> list) {
+        if (ObjectUtils.isEmpty(list)) {
+            return false;
+        }
+        String sql = makeDeleteSql(entityOperation.getPkName(), list.size());
+        int result = jdbcTemplateWrite.update(sql, list.toArray());
+        return result == list.size();
+    }
+
+    private boolean doInsert(T t) {
+        if (ObjectUtils.isEmpty(t)) {
+            return false;
+        }
+        Map<String, Object> param = entityOperation.parse(t);
+        String sql = makeSimpleInsertSql(this.getTableName(), param.keySet().toArray());
+        int result = this.jdbcTemplateWrite.update(sql, param.values().toArray());
+        return result > 0;
     }
 
     private Number doInsertAndReturnId(T t) {
@@ -145,14 +167,34 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return keyHolder.getKey();
     }
 
-    private boolean doInsert(T t) {
-        if (ObjectUtils.isEmpty(t)) {
+    private boolean doInsertAll(List<T> list) {
+        if (ObjectUtils.isEmpty(list)) {
             return false;
         }
-        Map<String, Object> param = entityOperation.parse(t);
-        String sql = makeSimpleInsertSql(this.getTableName(), param.keySet().toArray());
-        int result = this.jdbcTemplateWrite.update(sql, param.values().toArray());
-        return result > 0;
+        Object[] columnNames = entityOperation.getPropertyMappingMap().keySet().toArray();
+        LinkedList<Object> values = new LinkedList<>();
+        String sql = makeInsertSql(getTableName(), columnNames, list.size());
+        for (T t : list) {
+            Map<String, Object> map = entityOperation.parse(t);
+            values.addAll(map.values());
+        }
+        int result = jdbcTemplateWrite.update(sql, values.toArray());
+        return result == list.size();
+    }
+
+    protected void setDataSourceRead(DataSource dataSourceRead) {
+        this.dataSourceRead = dataSourceRead;
+        this.jdbcTemplateRead = new JdbcTemplate(dataSourceRead);
+    }
+
+    protected void setDataSourceWrite(DataSource dataSourceWrite) {
+        this.dataSourceWrite = dataSourceWrite;
+        this.jdbcTemplateWrite = new JdbcTemplate(dataSourceWrite);
+    }
+
+    protected void setDataSource(DataSource dataSource) {
+        setDataSourceRead(dataSource);
+        setDataSourceWrite(dataSource);
     }
 
     private String makeSimpleInsertSql(String tableName, Object[] columnNames) {
@@ -186,18 +228,27 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return sb.toString();
     }
 
-    protected void setDataSourceRead(DataSource dataSourceRead) {
-        this.dataSourceRead = dataSourceRead;
-        this.jdbcTemplateRead = new JdbcTemplate(dataSourceRead);
+    private String makeSimpleDeleteSql(String pkName) {
+        return makeDeleteSql(pkName, 1);
     }
 
-    protected void setDataSourceWrite(DataSource dataSourceWrite) {
-        this.dataSourceWrite = dataSourceWrite;
-        this.jdbcTemplateWrite = new JdbcTemplate(dataSourceWrite);
-    }
-
-    protected void setDataSource(DataSource dataSource) {
-        setDataSourceRead(dataSource);
-        setDataSourceWrite(dataSource);
+    private String makeDeleteSql(String pkName, int rowNum) {
+        if (StringUtils.isEmpty(pkName) || rowNum < 1) {
+            return null;
+        }
+        StringBuilder sql = new StringBuilder();
+        sql.append("delete from ");
+        sql.append(getTableName());
+        sql.append(" where ");
+        sql.append(pkName);
+        sql.append(" ");
+        sql.append(QueryRule.IN);
+        sql.append(" ");
+        StringJoiner condition = new StringJoiner(",", "(", ")");
+        for (int i = 0; i < rowNum; i++) {
+            condition.add("?");
+        }
+        sql.append(condition);
+        return sql.toString();
     }
 }

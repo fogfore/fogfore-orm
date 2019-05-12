@@ -47,7 +47,7 @@ public final class QueryRule implements Serializable {
     }
 
     public QueryRule andBetween(String propertyName, Object[] values) {
-        addRule(AND, propertyName, BETWEEN, "", surroundBySpaces(AND), "", values);
+        addRule(AND, propertyName, BETWEEN, "", " " + AND + " ", "", values);
         return this;
     }
 
@@ -107,7 +107,7 @@ public final class QueryRule implements Serializable {
     }
 
     public QueryRule orBetween(String propertyName, Object[] values) {
-        addRule(OR, propertyName, BETWEEN, "", surroundBySpaces(AND), "", values);
+        addRule(OR, propertyName, BETWEEN, "", " " + AND + " ", "", values);
         return this;
     }
 
@@ -191,12 +191,6 @@ public final class QueryRule implements Serializable {
             orders = new LinkedList<>();
         }
         orders.add(new Order(propertyName, type));
-    }
-
-    private String surroundBySpaces(String str) {
-        str = str.trim();
-        str = " " + str + " ";
-        return str;
     }
 
     final class Rule {
