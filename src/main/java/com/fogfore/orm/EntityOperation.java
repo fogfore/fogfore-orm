@@ -36,21 +36,21 @@ public class EntityOperation<T> {
         pkField = findPkField(clazz);
     }
 
-    private Field findPkField(Class<T> clazz) {
-        if (ObjectUtils.isEmpty(clazz)) {
-            return null;
-        }
-        Field[] fields = ClassMappings.getFields(clazz);
-        for (Field field : fields) {
-            if (field.isAnnotationPresent(Id.class) || StringUtils.equals("id", field.getName())) {
-                return field;
-            }
-        }
-        return null;
-    }
 
     public Class getPkClass() {
         return pkField.getType();
+    }
+
+    public Object getPkValue(T t) throws Exception {
+        return pkField.get(t);
+    }
+
+    public String getPkName() {
+        Column column = pkField.getAnnotation(Column.class);
+        if (!ObjectUtils.isEmpty(column) && !StringUtils.isEmpty(column.name())) {
+            return column.name();
+        }
+        return pkField.getName();
     }
 
     public Object parse(ResultSet resultSet) {
@@ -95,6 +95,20 @@ public class EntityOperation<T> {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private Field findPkField(Class<T> clazz) {
+        if (ObjectUtils.isEmpty(clazz)) {
+            return null;
+        }
+        Field[] fields = ClassMappings.getFields(clazz);
+        for (Field field : fields) {
+            if (field.isAnnotationPresent(Id.class) || StringUtils.equals("id", field.getName())) {
+                field.setAccessible(true);
+                return field;
+            }
+        }
+        return null;
     }
 
     private RowMapper<T> createRowMapping() {
@@ -145,7 +159,7 @@ public class EntityOperation<T> {
         Field[] fields = ClassMappings.getFields(clazz);
         Map<String, Method> getters = ClassMappings.findPublicGetters(clazz);
         Map<String, Method> setters = ClassMappings.findPublicSetter(clazz);
-        Map<String, PropertyMapping> map = new HashMap<>();
+        Map<String, PropertyMapping> map = new TreeMap<>();
         String propertyName = null;
         for (Field field : fields) {
             if (field.isAnnotationPresent(Transient.class)) {

@@ -31,15 +31,15 @@ public class QueryRuleSqlBuilder {
     }
 
     public boolean hasWhereSql() {
-        return StringUtils.isEmpty(whereSql);
+        return !StringUtils.isEmpty(whereSql);
     }
 
     public boolean hasOrderSql() {
-        return StringUtils.isEmpty(orderSql);
+        return !StringUtils.isEmpty(orderSql);
     }
 
     public boolean hasValues() {
-        return ObjectUtils.isEmpty(values);
+        return !ObjectUtils.isEmpty(values);
     }
 
     private void buildWhereSql(List<QueryRule.Rule> rules) {
@@ -74,5 +74,17 @@ public class QueryRuleSqlBuilder {
             joiner.add(order.getSql());
         });
         this.orderSql = joiner.toString();
+    }
+
+    public String getWhereSql() {
+        return whereSql;
+    }
+
+    public String getOrderSql() {
+        return orderSql;
+    }
+
+    public List<Object> getValues() {
+        return values;
     }
 }

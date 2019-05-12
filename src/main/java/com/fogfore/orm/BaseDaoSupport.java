@@ -71,7 +71,7 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         if (ObjectUtils.isEmpty(list)) {
             return false;
         }
-        String[] columnNames = (String[]) entityOperation.getPropertyMappingMap().keySet().toArray();
+        Object[] columnNames = entityOperation.getPropertyMappingMap().keySet().toArray();
         LinkedList<Object> values = new LinkedList<>();
         String sql = makeInsertSql(getTableName(), columnNames, list.size());
         for (T t : list) {
@@ -90,8 +90,33 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         return false;
     }
 
-    public boolean delete(T t) {
-        return false;
+    @SuppressWarnings("unchecked")
+    public boolean delete(T t) throws Exception {
+        if (ObjectUtils.isEmpty(t)) {
+            return false;
+        }
+        PK pkValue = (PK) entityOperation.getPkValue(t);
+        return doDelete(pkValue);
+    }
+
+    public boolean doDelete(PK pkValue) {
+        if (ObjectUtils.isEmpty(pkValue)) {
+            return false;
+        }
+        StringBuilder sql = new StringBuilder();
+        sql.append("delete from ");
+        sql.append(getTableName());
+        sql.append(" where ");
+        QueryRule queryRule = QueryRule.newInstance();
+        queryRule.andEqual(entityOperation.getPkName(), pkValue);
+        QueryRuleSqlBuilder build = QueryRuleSqlBuilder.build(queryRule);
+        if (!build.hasWhereSql() && !build.hasValues()) {
+            return false;
+        }
+        sql.append(build.getWhereSql());
+        sql.append(";");
+        int result = jdbcTemplateWrite.update(sql.toString(), build.getValues().toArray());
+        return result > 0;
     }
 
     public boolean deleteAll(List<T> list) {
@@ -104,7 +129,7 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
         }
         GeneratedKeyHolder keyHolder = new GeneratedKeyHolder();
         Map<String, Object> param = entityOperation.parse(t);
-        String sql = makeSimpleInsertSql(getTableName(), (String[]) param.keySet().toArray());
+        String sql = makeSimpleInsertSql(getTableName(), param.keySet().toArray());
         jdbcTemplateWrite.update(new PreparedStatementCreator() {
             @Override
             public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
@@ -125,31 +150,34 @@ public class BaseDaoSupport<T extends Serializable, PK extends Serializable> {
             return false;
         }
         Map<String, Object> param = entityOperation.parse(t);
-        String sql = makeSimpleInsertSql(this.getTableName(), (String[]) param.keySet().toArray());
+        String sql = makeSimpleInsertSql(this.getTableName(), param.keySet().toArray());
         int result = this.jdbcTemplateWrite.update(sql, param.values().toArray());
         return result > 0;
     }
 
-    private String makeSimpleInsertSql(String tableName, String[] columnNames) {
+    private String makeSimpleInsertSql(String tableName, Object[] columnNames) {
         return makeInsertSql(tableName, columnNames, 1);
     }
 
-    private String makeInsertSql(String tableName, String[] columnNames, int rowNum) {
+    private String makeInsertSql(String tableName, Object[] columnNames, int rowNum) {
         if (StringUtils.isEmpty(tableName) || ObjectUtils.isEmpty(columnNames) || rowNum < 1) {
             return null;
         }
         StringBuilder sb = new StringBuilder();
         sb.append("insert into ");
         sb.append(tableName);
+        sb.append(" ");
         StringJoiner namesJoiner = new StringJoiner(",", "(", ")");
         StringJoiner valuesJoiner = new StringJoiner(",", "(", ")");
-        for (String name : columnNames) {
-            namesJoiner.add(name);
-            valuesJoiner.add("?");
+        for (Object name : columnNames) {
+            if (name instanceof String) {
+                namesJoiner.add((String) name);
+                valuesJoiner.add("?");
+            }
         }
         sb.append(namesJoiner.toString());
         sb.append(" values ");
-        StringJoiner multiJoiner = new StringJoiner("", ",", "");
+        StringJoiner multiJoiner = new StringJoiner(",", "", "");
         for (int i = 0; i < rowNum; i++) {
             multiJoiner.add(valuesJoiner.toString());
         }
